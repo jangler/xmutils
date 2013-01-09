@@ -16,6 +16,7 @@ object Xm2Mml {
 
 	var format: Format = generic
 	var xm: XmFile = null
+	var lastNote: String = ""
 
 	// Fatal error
 	def error(msg: String) = {
@@ -63,6 +64,8 @@ object Xm2Mml {
 	// Print the value of a note based on how many rows pass before the next
 	// note.
 	def printNoteValue(n: Int): Unit = {
+		print(lastNote)
+
 		var mainval = 16
 		while (mainval >= 2 && mainval * n >= 32)
 			mainval /= 2
@@ -77,7 +80,7 @@ object Xm2Mml {
 		}
 
 		if (remainder > 0) {
-			print(" " + format.waitChar)
+			print("&")
 			printNoteValue(remainder)
 		}
 	}
@@ -267,7 +270,8 @@ object Xm2Mml {
 						if (row != 0)
 							printNoteValue(noteValue)
 						noteValue = 0
-						print(" r")
+						print(" ")
+						lastNote = "r"
 					} else if (note != 0) {
 						curNote = note
 						if (row != 0)
@@ -322,7 +326,8 @@ object Xm2Mml {
 							print(" v" + newVolume)
 							curVolume = newVolume
 						}
-						print(" " + pitchNames((note - 1) % 12))
+						print(" ")
+						lastNote = pitchNames((note - 1) % 12)
 					} else {
 						if (newVolume != curVolume) {
 							if (row != 0)
@@ -330,9 +335,11 @@ object Xm2Mml {
 							noteValue = 0
 							print(" v" + newVolume)
 							curVolume = newVolume
-							print(" " + format.waitChar)
+							print(" ")
+							lastNote = "" + format.waitChar
 						} else if (row == 0) {
-							print(" " + format.waitChar)
+							print(" ")
+							lastNote = "" + format.waitChar
 							noteValue -= 1
 						}
 					}
