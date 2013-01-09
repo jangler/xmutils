@@ -112,7 +112,7 @@ Commodore 64
 Format names: c64, commodore
 
 Channels:
-    - A, B, and C (all alike)
+    - A, B, and C (all alike), any octave
 
 XM2MML supports the following features with the C64:
     - ADSR envelopes (using instrument volume envelopes)
@@ -129,5 +129,5 @@ decrease to the sustain level, then decrease to 0.
 name. If x = 0, waveform is triangle; if x = 1, waveform is saw; if x = 2,
 waveform is square; if x = 3, waveform is noise.
 
-    The pulse width of a square wave (@2) instrument can be set by putting @xx
+    The pulse width of a square wave (@2) instrument can be set by putting pwxx
 in the instrument's name. xx can be a decimal integer from 0 to 15.
