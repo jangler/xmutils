@@ -1,5 +1,6 @@
 import math._
 import java.io.FileInputStream
+import java.util.{Map, HashMap}
 
 // TODO: handle invalid octaves
 class Format(val names: List[String], val numChannels: Int, val waitChar: Char,
@@ -31,6 +32,7 @@ object Xm2Mml {
 	var format: Format = generic
 	var xm: XmFile = null
 	var lastNote: String = ""
+	var arps: Map[Int, Int] = new HashMap
 
 	// Fatal error
 	def error(msg: String) = {
@@ -241,6 +243,32 @@ object Xm2Mml {
 		}
 	}
 
+	def printArpMacros(): Unit = {
+		// Get a set of all arps that occur in the song
+		var arpSet: Set[(Int, Int)] = Set()
+		for (pattern <- xm.patterns) {
+			for (row <- 0 to (pattern.numRows - 1)) {
+				for (channel <- 0 to (xm.numChannels - 1)) {
+					val effect = pattern.notes(row)(channel).effectType.toInt
+					if (effect == 0) {
+						val parameter = pattern.notes(row)(channel).effectParameter.toInt
+						if (parameter != 0)
+							arpSet += Pair((parameter & 0xf0) >> 4, parameter & 0xf)
+					}
+				}
+			}
+		}
+
+		// Print a macro for each arp
+		var index = 0
+		for (arp <- arpSet) {
+			println("@EN" + index + " = { 0 | " + arp._1 + " " + (arp._2 - arp._1) +
+				" -" + arp._2 + " }")
+			arps.put(arp._1 * 16 + arp._2, index)
+			index += 1
+		}
+	}
+
 	def main(args: Array[String]) = {
 		if (args.length == 2) {
 			if (!setFormat(args(0)))
@@ -268,6 +296,7 @@ object Xm2Mml {
 		println(" t" + 6 * xm.defaultBpm / xm.defaultTempo)
 
 		printVolumeEnvelopes
+		printArpMacros
 		if (format == gb) {
 			printPanningMacros
 			printWaveformMacros
@@ -292,6 +321,7 @@ object Xm2Mml {
 			var currentOctave = 0
 			var currentEnvelope = 0
 			var currentNote = 0
+			var currentArp = -1
 			var noteValue = -1
 
 			if (xm.patterns(xm.orderTable(0)).notes(0)(channel).note.toInt == 0) {
@@ -321,6 +351,18 @@ object Xm2Mml {
 							0
 						} else {
 							currentPan
+						}
+
+					val arp =
+						if (effect == 0) {
+							if (parameter == 0)
+								-1
+							else
+								arps.get(Pair((parameter & 0xf0) >> 4, parameter & 0xf))
+						} else if (note != 0) {
+							-1
+						} else {
+							currentArp
 						}
 
 					val vol =
@@ -398,6 +440,13 @@ object Xm2Mml {
 						if (currentOctave != octave) {
 							currentOctave = octave
 							print(" o" + octave)
+						}
+						if (currentArp != arp) {
+							currentArp = arp
+							if (arp == -1)
+								print(" ENOF")
+							else
+								print(" EN" + arp)
 						}
 						if (!xm.instruments(instrument - 1).volumeOn && vol != currentVol) {
 							print(" v" + vol)
