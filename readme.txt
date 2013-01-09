@@ -14,6 +14,7 @@ to write MML.
 
 The current systems "completely" supported by XM2MML are:
     - Nintendo Gameboy / Gameboy Color
+		- SEGA Master System (PSG only)
 
 The current systems "partially" supported by XM2MML are:
     - Nintendo Entertainment System (2a03 only)
@@ -101,7 +102,7 @@ XM2MML supports the following features with the NES:
     - Duty cycles for channels A and B (using instrument names)
     - Noise type for channel D (using instrument names)
 
-    NES duty cycles work as described for the Gameboy.
+    NES duty cycles and noise type work as described for the Gameboy.
 
     DPCM is not yet implemented.
 
@@ -131,3 +132,20 @@ waveform is square; if x = 3, waveform is noise.
 
     The pulse width of a square wave (@2) instrument can be set by putting pwxx
 in the instrument's name. xx can be a decimal integer from 0 to 15.
+
+
+SEGA Master System
+==================
+
+Format names: sms
+
+Channels:
+    - A (square wave), octaves 2-7 (lowest note A2)
+    - B (square wave), octaves 2-7 (lowest note A2)
+    - C (square wave), octaves 2-7 (lowest note A2)
+    - D (noise), octaves 1-7
+
+XM2MML supports the following features with the Master System:
+    - Noise type for channel D (using instrument names)
+
+		The noise type for the Master Systems works as described for the Gameboy.

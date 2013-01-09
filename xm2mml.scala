@@ -7,6 +7,7 @@ class Format(val names: List[String], val numChannels: Int, val waitChar: Char)
 object Xm2Mml {
 	val generic = new Format(List(), 32, 'w')
 	val nes = new Format(List("nes", "nsf", "nintendo"), 5, 'w')
+	val sms = new Format(List("sms"), 4, 's')
 	val gb = new Format(List("gb", "gbs", "gbc", "gameboy"), 4, 's')
 	val c64 = new Format(List("c64", "commodore"), 3, 's')
 
@@ -32,6 +33,8 @@ object Xm2Mml {
 	def setFormat(s: String): Boolean = {
 		if (nes.names contains s)
 			format = nes
+		else if (sms.names contains s)
+			format = sms
 		else if (gb.names contains s)
 			format = gb
 		else if (c64.names contains s)
@@ -301,7 +304,8 @@ object Xm2Mml {
 						}
 						if (xm.instruments(instrument - 1).duty != curDuty) {
 							if ((format == gb && channel != 2) || (format == nes &&
-									 channel != 5) || (format == c64)) {
+									 channel != 5) || (format == c64) ||
+									 (format == sms && channel == 3)) {
 								curDuty = xm.instruments(instrument - 1).duty
 								print(" @" + curDuty)
 							}
