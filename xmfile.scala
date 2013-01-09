@@ -2,7 +2,7 @@ import math._
 import java.io.FileInputStream
 
 object misc {
-	val dutyRE = """.*@(\d).*""".r
+	val dutyRE = """.*@(\d\d?).*""".r
 	val pulseWidthRE = """.*pw(\d\d?).*""".r
 
 	// Sums a list of Chars into an Int.

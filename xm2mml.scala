@@ -6,10 +6,11 @@ class Format(val names: List[String], val numChannels: Int, val waitChar: Char)
 
 object Xm2Mml {
 	val generic = new Format(List(), 32, 'w')
-	val nes = new Format(List("nes", "nsf", "nintendo"), 5, 'w')
+	val nes = new Format(List("nes", "nsf", "nintendo", "2a03"), 5, 'w')
 	val sms = new Format(List("sms"), 4, 's')
 	val gb = new Format(List("gb", "gbs", "gbc", "gameboy"), 4, 's')
-	val c64 = new Format(List("c64", "commodore"), 3, 's')
+	val c64 = new Format(List("c64", "sid", "commodore"), 3, 's')
+	val cpc = new Format(List("amstrad", "cpc", "ay"), 3, 's')
 
 	val pitchNames = List("c", "c+", "d", "d+", "e", "f", "f+", "g", "g+", "a",
 	                      "a+", "b")
@@ -40,6 +41,8 @@ object Xm2Mml {
 			format = gb
 		else if (c64.names contains s)
 			format = c64
+		else if (cpc.names contains s)
+			format = cpc
 		else
 			return false
 
@@ -208,7 +211,6 @@ object Xm2Mml {
 		}
 
 		// Body
-		// TODO: prevent some settings from resetting at the beginning of a pattern?
 
 		for (patternNo <- xm.orderTable) {
 			val pattern = xm.patterns(patternNo)
@@ -306,10 +308,10 @@ object Xm2Mml {
 							curAdsr = instrument
 							print(" ADSR" + curAdsr)
 						}
-						if (xm.instruments(instrument - 1).duty != curDuty) {
+						if (instrument > 0 && xm.instruments(instrument - 1).duty != curDuty) {
 							if ((format == gb && channel != 2) || (format == nes &&
 									 channel != 5) || (format == c64) ||
-									 (format == sms && channel == 3)) {
+									 (format == sms && channel == 3) || (format == cpc)) {
 								curDuty = xm.instruments(instrument - 1).duty
 								print(" @" + curDuty)
 							}
