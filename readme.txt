@@ -14,7 +14,7 @@ to write MML.
 
 The current systems "completely" supported by XM2MML are:
     - Nintendo Gameboy / Gameboy Color
-		- SEGA Master System (PSG only)
+    - SEGA Master System (PSG only)
 
 The current systems "partially" supported by XM2MML are:
     - Nintendo Entertainment System (2a03 only)
@@ -148,4 +148,4 @@ Channels:
 XM2MML supports the following features with the Master System:
     - Noise type for channel D (using instrument names)
 
-		The noise type for the Master Systems works as described for the Gameboy.
+    The noise type for the Master Systems works as described for the Gameboy.
