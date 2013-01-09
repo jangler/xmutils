@@ -358,7 +358,7 @@ object Xm2Mml {
 							if (parameter == 0)
 								-1
 							else
-								arps.get(Pair((parameter & 0xf0) >> 4, parameter & 0xf))
+								arps.get(parameter)
 						} else if (note != 0) {
 							-1
 						} else {
