@@ -1,8 +1,7 @@
 XM2MML User Manual
 ==================
 
-Program and manual written by Brandon Mulcahy. Lasest revision Jan 8, 2013.
-Report bugs to janglermusic@gmail.com, or reach me in #botb on irc.esper.net.
+Latest revision Jan 8, 2013.
 
 
 Overview
@@ -34,12 +33,16 @@ Usage
     XM2MML is a command-line program; that is, it does not have a graphical
 user interface. Invocations of the program on the command-line have the form:
 
+    xm2mml <infile.xm>
+
+    -OR-
+
     xm2mml <format> <infile.xm>
 
 Replace <format> with the name of the format you would like to convert to, and
-replace <infile.xm> with the filename of the source XM file. The program prints
-its output to the terminal, so in practice most invocations of XM2MML will have
-the form:
+replace <infile.xm> with the filename of the source XM file. If no format is
+specified, the program outputs generic MML. The program prints its output to
+the terminal, so in practice most invocations of XM2MML will have the form:
 
     xm2mml <format> <infile.xm> > <outfile.mml>
 
