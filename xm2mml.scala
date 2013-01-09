@@ -2,15 +2,28 @@ import math._
 import java.io.FileInputStream
 
 // TODO: handle invalid octaves
-class Format(val names: List[String], val numChannels: Int, val waitChar: Char)
+class Format(val names: List[String], val numChannels: Int, val waitChar: Char,
+	val maxVolume: List[Int]) {
+
+	assert(maxVolume.length == numChannels)
+}
 
 object Xm2Mml {
-	val generic = new Format(List(), 32, 'w')
-	val nes = new Format(List("nes", "nsf", "nintendo", "2a03"), 5, 'w')
-	val sms = new Format(List("sms"), 4, 's')
-	val gb = new Format(List("gb", "gbs", "gbc", "gameboy"), 4, 's')
-	val c64 = new Format(List("c64", "sid", "commodore"), 3, 's')
-	val cpc = new Format(List("amstrad", "cpc", "ay"), 3, 's')
+	val generic = new Format(List(), 32, 'w', List(64,64,64,64,64,64,64,64,64,64,
+		64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64))
+
+	val nes = new Format(List("nes", "nsf", "nintendo", "2a03"), 5, 'w', 
+		List(15, 15, 1, 15, 1))
+
+	val sms = new Format(List("sms"), 4, 's', List(15, 15, 15, 15))
+
+	val gb = new Format(List("gb", "gbs", "gbc", "gameboy"), 4, 's',
+		List(15, 15, 3, 15))
+
+	val c64 = new Format(List("c64", "sid", "commodore"), 3, 's',
+		List(15, 15, 15))
+
+	val cpc = new Format(List("amstrad", "cpc", "ay"), 3, 's', List(15, 15, 15))
 
 	val pitchNames = List("c", "c+", "d", "d+", "e", "f", "f+", "g", "g+", "a",
 	                      "a+", "b")
@@ -67,24 +80,26 @@ object Xm2Mml {
 	// Print the value of a note based on how many rows pass before the next
 	// note.
 	def printNoteValue(n: Int): Unit = {
-		print(lastNote)
-
-		var mainval = 16
-		while (mainval >= 2 && mainval * n >= 32)
-			mainval /= 2
-		print(mainval)
-
-		var remainder = n - (16 / mainval)
-		var dotval = (16 / mainval) / 2
-		while (remainder >= dotval && dotval > 0) {
-			print(".")
-			remainder -= dotval
-			dotval /= 2
-		}
-
-		if (remainder > 0) {
-			print("&")
-			printNoteValue(remainder)
+		if (lastNote != "") {
+			print(lastNote)
+	
+			var mainval = 16
+			while (mainval >= 2 && mainval * n >= 32)
+				mainval /= 2
+			print(mainval)
+	
+			var remainder = n - (16 / mainval)
+			var dotval = (16 / mainval) / 2
+			while (remainder >= dotval && dotval > 0) {
+				print(".")
+				remainder -= dotval
+				dotval /= 2
+			}
+	
+			if (remainder > 0) {
+				print("&")
+				printNoteValue(remainder)
+			}
 		}
 	}
 
@@ -177,6 +192,55 @@ object Xm2Mml {
 		}
 	}
 	
+	// Print an @v<num> = {} volume envelope based on an instrument's volume envelope
+	def printVolumeEnvelope(insNo: Int, instrument: Instrument): Unit = {
+		if (instrument.numVolumePoints == 0) { // default
+			println("@v" + insNo + " = { " + format.maxVolume(0) + " }")
+		} else {
+			val volPts = instrument.volumePoints
+			val numPts = instrument.numVolumePoints
+			print("@v" + insNo + " = { " +
+				min(format.maxVolume(0), volPts(0).y / (64 / format.maxVolume(0))))
+
+			val numVolumes = volPts(numPts - 1).x
+			for (x <- 1 to (numVolumes - 1)) {
+				var y = -1.0
+				var prevIndex = 0
+				for (j <- 0 to (numPts - 1)) {
+					val point = volPts(j)
+					if (point.x == x)
+						y = point.y
+					else if (point.x < x)
+						prevIndex = j
+				}
+				if (y == -1.0) {
+					val prev = volPts(prevIndex)
+					var next = volPts(prevIndex + 1)
+					if (prev.x < next.x) {
+						val dist = 1.0 * (x - prev.x) / (next.x - prev.x)
+						y = prev.y * (1 - dist) + next.y * dist
+					} else {
+						y = prev.y
+					}
+				}
+				print(" " + min(format.maxVolume(0), y.toInt / (64 / format.maxVolume(0))))
+			}
+			print(" " +
+				min(format.maxVolume(0),
+				volPts(numPts - 1).y / (64 / format.maxVolume(0))))
+			
+			println(" }")
+		}
+	}
+
+	def printVolumeEnvelopes(): Unit = {
+		if (format != c64) {
+			for (i <- 0 to (xm.numInstruments - 1)) {
+				printVolumeEnvelope(i + 1, xm.instruments(i))
+			}
+		}
+	}
+
 	def main(args: Array[String]) = {
 		if (args.length == 2) {
 			if (!setFormat(args(0)))
@@ -203,6 +267,7 @@ object Xm2Mml {
 			print(letter)
 		println(" t" + 6 * xm.defaultBpm / xm.defaultTempo)
 
+		printVolumeEnvelopes
 		if (format == gb) {
 			printPanningMacros
 			printWaveformMacros
@@ -212,147 +277,133 @@ object Xm2Mml {
 
 		// Body
 
-		for (patternNo <- xm.orderTable) {
-			val pattern = xm.patterns(patternNo)
-			var channelLetter = 'A'
-			for (channel <- 0 to min(numChannels - 1, xm.numChannels - 1)) {
-				print(channelLetter)
-				var noteValue = 0
-				var curOctave = -1
-				var curVolume = -1
-				var curInstrument = -1
-				var curDuty = -1
-				var curPulseWidth = -1
-				var curNote = -1
-				var curPan = 0
-				var curAdsr = -1
-				if (format == gb)
-					print(" CS1")
+		var channelLetter = 'A'
+		for (channel <- 0 to (numChannels - 1)) {
+			print(channelLetter)
+
+			lastNote = ""
+
+			var currentPan = 0
+			var currentVol = 0
+			var currentIns = 0
+			var currentPw = 0 // pulse width
+			var currentAdsr = 0
+			var currentDuty = 0
+			var currentOctave = 0
+			var currentEnvelope = 0
+			var noteValue = -1
+
+			if (xm.patterns(xm.orderTable(0)).notes(0)(channel).note.toInt == 0) {
+				lastNote = "" + format.waitChar
+			}
+
+			for (patternNo <- xm.orderTable) {
+				val pattern = xm.patterns(patternNo)
 				for (row <- 0 to (pattern.numRows - 1)) {
-					var note = pattern.notes(row)(channel).note.toInt
-					val volume = pattern.notes(row)(channel).volume.toInt
-					var instrument = pattern.notes(row)(channel).instrument.toInt
-					var effectType = pattern.notes(row)(channel).effectType.toInt
-					var effectParameter = pattern.notes(row)(channel).effectParameter.toInt
-
-					val pan = 
-						if (effectType == 8) {
-							if (effectParameter < 128) -1
-							else if (effectParameter == 128) 0
-							else 1
-						} else {
-							0
-						}
-					if (note == 0 && format == gb && pan != curPan) {
-						note = curNote
-						instrument = curInstrument
-					}	
-
-					var newVolume = curVolume
-					if (format != c64 && volume >= 0x10 && volume <= 0x50) {
-						if (channel == 2 && format == gb)
-							newVolume = (volume - 0x10) / 17
-						else
-							newVolume = (volume - 0x11) / 4
-						if (newVolume < 0)
-							newVolume = 0
-						if (note == 0) {
-							note = curNote
-							instrument = curInstrument
-						}
-					} else if (note != 0) {
-						if (channel == 2 && format == gb)
-							newVolume = 3
-						else
-							newVolume = 15
-					}
+					var noteNeeded = false
 					noteValue += 1
 
-					if (note == 97) {
-						if (row != 0)
-							printNoteValue(noteValue)
+					val note = pattern.notes(row)(channel).note.toInt
+					val volume = pattern.notes(row)(channel).volume.toInt
+					val instrument = pattern.notes(row)(channel).instrument.toInt
+					val effect = pattern.notes(row)(channel).effectType.toInt
+					val parameter = pattern.notes(row)(channel).effectParameter.toInt
+
+					val pan =
+						if (effect == 8) {
+							if (parameter < 128)
+								-1
+							else if (parameter == 128)
+								0
+							else
+								1
+						} else if (note != 0) {
+							0
+						} else {
+							currentPan
+						}
+
+					val vol =
+						if (volume != 0) {
+							min(format.maxVolume(channel), 
+								(volume - 0x10) / (64 / format.maxVolume(channel)))
+						} else if (note != 0) {
+							format.maxVolume(channel)
+						} else {
+							currentVol
+						}
+
+					if (note == 97) { // note off
+						printNoteValue(noteValue)
 						noteValue = 0
 						print(" ")
 						lastNote = "r"
-					} else if (note != 0) {
-						curNote = note
-						if (row != 0)
-							printNoteValue(noteValue)
+					} else if (note != 0) { // note
+						printNoteValue(noteValue)
 						noteValue = 0
 
-						if (format == gb) {
-							if (pan != curPan) {
-								curPan = pan
-								if (pan < 0)
-									print(" CS0")
-								else if (pan == 0)
-									print(" CS1")
-								else
-									print(" CS2")
+						if (format == gb && pan != currentPan) {
+							currentPan = pan
+							if (pan < 0)
+								print(" CS0")
+							else if (pan == 0)
+								print(" CS1")
+							else
+								print(" CS2")
+						}
+
+						if (instrument != 0) {
+							if (format == gb && channel == 2 && instrument != currentIns) {
+								currentIns = instrument
+								print(" WT" + instrument)
+							}
+	
+							if (format == c64) {
+								val pw = xm.instruments(instrument - 1).pulseWidth
+								if (currentPw != pw) {
+									currentPw = pw
+									print(" pw" + currentPw)
+								}
+								if (currentAdsr != instrument) {
+									currentAdsr = instrument
+									print(" ADSR" + currentAdsr)
+								}
+							} else if (currentEnvelope != instrument) {
+								currentEnvelope = instrument
+								print(" @v" + instrument)
+							}
+
+							val duty = xm.instruments(instrument - 1).duty
+							if (duty != currentDuty && 
+									((format == gb && channel != 2) || (format == nes &&
+									channel != 4) || (format == c64) || (format == sms &&
+									channel == 3) || (format == cpc))) {
+								currentDuty = duty
+								print(" @" + currentDuty)
 							}
 						}
 
-						if (channel == 2 && format == gb && instrument != 0 &&
-						    instrument != curInstrument) {
-							curInstrument = instrument
-							print(" WT" + (instrument))
-						} else {
-							curInstrument = instrument
-						}
-						if (format == c64 && curPulseWidth !=
-						    xm.instruments(instrument - 1).pulseWidth) {
-							curPulseWidth = xm.instruments(instrument - 1).pulseWidth
-							print(" pw" + curPulseWidth)
-						}
-						if (format == c64 && curAdsr != instrument) {
-							curAdsr = instrument
-							print(" ADSR" + curAdsr)
-						}
-						if (instrument > 0 && xm.instruments(instrument - 1).duty != curDuty) {
-							if ((format == gb && channel != 2) || (format == nes &&
-									 channel != 5) || (format == c64) ||
-									 (format == sms && channel == 3) || (format == cpc)) {
-								curDuty = xm.instruments(instrument - 1).duty
-								print(" @" + curDuty)
-							}
-						}
-
-						var octave = ((note - 1) / 12)
-						if (channel == 3 && format == gb)
+						var octave = (note - 1) / 12
+						if (format == gb && channel == 3)
 							octave += 4
-						if (curOctave != octave) {
-							curOctave = octave
+						if (currentOctave != octave) {
+							currentOctave = octave
 							print(" o" + octave)
 						}
-						if (newVolume != curVolume) {
-							print(" v" + newVolume)
-							curVolume = newVolume
+						/*
+						if (vol != currentVol) {
+							print(" v" + vol)
+							currentVol = vol
 						}
+						*/
 						print(" ")
 						lastNote = pitchNames((note - 1) % 12)
-					} else {
-						if (newVolume != curVolume) {
-							if (row != 0)
-								printNoteValue(noteValue)
-							noteValue = 0
-							print(" v" + newVolume)
-							curVolume = newVolume
-							print(" ")
-							lastNote = "" + format.waitChar
-						} else if (row == 0) {
-							print(" ")
-							lastNote = "" + format.waitChar
-							noteValue -= 1
-						}
 					}
 				}
-				if (noteValue != pattern.numRows)
-					printNoteValue(noteValue + 1)
-				else
-					printNoteValue(noteValue)
-				println("")
-				channelLetter = (channelLetter + 1).toChar
 			}
+			printNoteValue(noteValue)
+			println("")
+			channelLetter = (channelLetter + 1).toChar
 		}
 	}
 }
