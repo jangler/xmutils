@@ -194,7 +194,7 @@ object Xm2Mml {
 	
 	// Print an @v<num> = {} volume envelope based on an instrument's volume envelope
 	def printVolumeEnvelope(insNo: Int, instrument: Instrument): Unit = {
-		if (instrument.numVolumePoints == 0) { // default
+		if (instrument.numVolumePoints == 0 || !instrument.volumeOn) { // default
 			println("@v" + insNo + " = { " + format.maxVolume(0) + " }")
 		} else {
 			val volPts = instrument.volumePoints
@@ -291,6 +291,7 @@ object Xm2Mml {
 			var currentDuty = 0
 			var currentOctave = 0
 			var currentEnvelope = 0
+			var currentNote = 0
 			var noteValue = -1
 
 			if (xm.patterns(xm.orderTable(0)).notes(0)(channel).note.toInt == 0) {
@@ -300,12 +301,11 @@ object Xm2Mml {
 			for (patternNo <- xm.orderTable) {
 				val pattern = xm.patterns(patternNo)
 				for (row <- 0 to (pattern.numRows - 1)) {
-					var noteNeeded = false
 					noteValue += 1
 
-					val note = pattern.notes(row)(channel).note.toInt
+					var note = pattern.notes(row)(channel).note.toInt
 					val volume = pattern.notes(row)(channel).volume.toInt
-					val instrument = pattern.notes(row)(channel).instrument.toInt
+					var instrument = pattern.notes(row)(channel).instrument.toInt
 					val effect = pattern.notes(row)(channel).effectType.toInt
 					val parameter = pattern.notes(row)(channel).effectParameter.toInt
 
@@ -333,6 +333,13 @@ object Xm2Mml {
 							currentVol
 						}
 
+					if (currentEnvelope > 0 && 
+							!xm.instruments(currentEnvelope - 1).volumeOn && 
+							vol != currentVol && note == 0) {
+						note = currentNote
+						instrument = currentEnvelope
+					}
+
 					if (note == 97) { // note off
 						printNoteValue(noteValue)
 						noteValue = 0
@@ -341,6 +348,7 @@ object Xm2Mml {
 					} else if (note != 0) { // note
 						printNoteValue(noteValue)
 						noteValue = 0
+						currentNote = note
 
 						if (format == gb && pan != currentPan) {
 							currentPan = pan
@@ -370,7 +378,8 @@ object Xm2Mml {
 								}
 							} else if (currentEnvelope != instrument) {
 								currentEnvelope = instrument
-								print(" @v" + instrument)
+								if (xm.instruments(instrument - 1).volumeOn)
+									print(" @v" + instrument)
 							}
 
 							val duty = xm.instruments(instrument - 1).duty
@@ -390,12 +399,10 @@ object Xm2Mml {
 							currentOctave = octave
 							print(" o" + octave)
 						}
-						/*
-						if (vol != currentVol) {
+						if (!xm.instruments(instrument - 1).volumeOn && vol != currentVol) {
 							print(" v" + vol)
 							currentVol = vol
 						}
-						*/
 						print(" ")
 						lastNote = pitchNames((note - 1) % 12)
 					}

@@ -116,6 +116,7 @@ class Instrument(val xmfile: XmFile) {
 	var panningLoopStart = xmfile.readNext(1)(0)
 	var panningLoopEnd = xmfile.readNext(1)(0)
 	var volumeType = xmfile.readNext(1)(0) // TODO: convert to structured
+	var volumeOn: Boolean = (volumeType & 1) != 0
 	var panningType = xmfile.readNext(1)(0) // TODO: convert to structured
 	var vibratoType = xmfile.readNext(1)(0)
 	var vibratoSweep = xmfile.readNext(1)(0)
