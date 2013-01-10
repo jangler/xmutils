@@ -18,6 +18,8 @@ object Xm2Mml {
 
 	val sms = new Format(List("sms"), 4, 's', List(15, 15, 15, 15))
 
+	val pokey = new Format(List("atari", "pokey", "at8"), 4, 's', List(15, 15, 15, 15))
+
 	val gb = new Format(List("gb", "gbs", "gbc", "gameboy"), 4, 's',
 		List(15, 15, 3, 15))
 
@@ -33,6 +35,7 @@ object Xm2Mml {
 	var xm: XmFile = null
 	var lastNote: String = ""
 	var arps: Map[Int, Int] = new HashMap
+	var vibratos: Map[Int, Int] = new HashMap
 
 	// Fatal error
 	def error(msg: String) = {
@@ -58,6 +61,8 @@ object Xm2Mml {
 			format = c64
 		else if (cpc.names contains s)
 			format = cpc
+		else if (pokey.names contains s)
+			format = pokey
 		else
 			return false
 
@@ -269,6 +274,38 @@ object Xm2Mml {
 		}
 	}
 
+	def printVibratoMacros(): Unit = {
+		// Get a set of all 4xx that occur in the song
+		var vibSet: Set[(Int, Int)] = Set()
+		for (pattern <- xm.patterns) {
+			for (row <- 0 to (pattern.numRows - 1)) {
+				for (channel <- 0 to (xm.numChannels - 1)) {
+					val effect = pattern.notes(row)(channel).effectType.toInt
+					if (effect == 4) {
+						val parameter = pattern.notes(row)(channel).effectParameter.toInt
+						if (parameter != 0)
+							vibSet += Pair((parameter & 0xf0) >> 4, parameter & 0xf)
+					}
+				}
+			}
+		}
+
+		// Add instrument vibratos to the set
+		for (instrument <- xm.instruments) {
+			if (instrument.vibratoDepth != 0 && instrument.vibratoRate != 0) {
+				vibSet += Pair(instrument.vibratoRate / 4, instrument.vibratoDepth / 4)
+			}
+		}
+
+		// Print a macro for each 4xx
+		var index = 0
+		for (vib <- vibSet) {
+			println("@MP" + index + " = { 0 " + vib._1 + " " + vib._2 + " }")
+			vibratos.put(vib._1 * 16 + vib._2, index)
+			index += 1
+		}
+	}
+
 	def main(args: Array[String]) = {
 		if (args.length == 2) {
 			if (!setFormat(args(0)))
@@ -297,6 +334,7 @@ object Xm2Mml {
 
 		printVolumeEnvelopes
 		printArpMacros
+		printVibratoMacros
 		if (format == gb) {
 			printPanningMacros
 			printWaveformMacros
@@ -322,6 +360,7 @@ object Xm2Mml {
 			var currentEnvelope = 0
 			var currentNote = 0
 			var currentArp = -1
+			var currentVib = -1
 			var noteValue = -1
 
 			if (xm.patterns(xm.orderTable(0)).notes(0)(channel).note.toInt == 0) {
@@ -329,6 +368,7 @@ object Xm2Mml {
 			}
 
 			for (patternNo <- xm.orderTable) {
+
 				val pattern = xm.patterns(patternNo)
 				for (row <- 0 to (pattern.numRows - 1)) {
 					noteValue += 1
@@ -363,6 +403,24 @@ object Xm2Mml {
 							-1
 						} else {
 							currentArp
+						}
+
+					val vib =
+						if (effect == 4) {
+							if (parameter == 0)
+								-1
+							else
+								vibratos.get(parameter)
+						} else if (note != 0) {
+							if (instrument != 0 &&
+									xm.instruments(instrument - 1).vibratoRate != 0 &&
+									xm.instruments(instrument - 1).vibratoDepth != 0)
+								vibratos.get(xm.instruments(instrument - 1).vibratoRate * 16 +
+									xm.instruments(instrument - 1).vibratoDepth)
+							else
+								-1
+						} else {
+							currentVib
 						}
 
 					val vol =
@@ -447,6 +505,13 @@ object Xm2Mml {
 								print(" ENOF")
 							else
 								print(" EN" + arp)
+						}
+						if (currentVib != vib) {
+							currentVib = vib
+							if (vib == -1)
+								print(" MPOF")
+							else
+								print(" MP" + vib)
 						}
 						if (!xm.instruments(instrument - 1).volumeOn && vol != currentVol) {
 							print(" v" + vol)
